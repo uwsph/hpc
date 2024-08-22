@@ -48,7 +48,9 @@ printf 'provider=sqlite\ndirectory=/var/lib/rstudio-server\n' > database.conf
 
 # Generate random password
 RS_CONTAINER_PASSWD=$(openssl rand -base64 12)
-echo "PASSWORD=${RS_CONTAINER_PASSWD}" > ${TMPDIR}/rs.passwd
+# Since --env-file does not apepar to be working with singularity, 
+# we have commented out the following command which would save it.
+#echo "PASSWORD=${RS_CONTAINER_PASSWD}" > ${TMPDIR}/rs.passwd
 
 # Pick random port number
 while :
