@@ -1,0 +1,60 @@
+# Notes for test of rstudio and R-4.4.1 on sph-hpc prototype cluster. 
+# 2024-08-21 Brian High <high@uw.edu>
+
+# Login to cluster with x11-forwarding enabled.
+ssh -X high@login.hpc.sph.washington.edu
+
+# Look for R and see which version it is.
+whereis R
+R --version
+
+# It's an older version: R-4.3.3. I need R-4.4+.
+
+# Install latest R-4.4.1 using these instructions:
+# https://cran.r-project.org/bin/linux/ubuntu/
+
+# Look for R Studio.
+whereis rstudio
+
+# None found.
+
+# Install latest R Studio Desktop as follows:
+sudo apt install libcanberra-gtk-module libcanberra-gtk3-module -y
+wget 'https://download1.rstudio.org/electron/jammy/amd64/rstudio-2024.04.2-764-amd64.deb'
+sudo apt update
+sudo dpkg -i ./rstudio-2024.04.2-764-amd64.deb
+sudo apt -f install
+sudo chmod 4755 /usr/lib/rstudio/chrome-sandbox
+
+# Install dependencies for my example R project.
+sudo apt install gsfonts imagemagick libmagick++-dev -y
+
+# The packages installed above put binaries in /usr/bin.
+
+# Test as follows:
+git clone https://github.com/brianhigh/gisaid_and_parsnp_demo.git
+export PATH=/usr/bin:$PATH
+rstudio &
+
+# Create an R Studio "project" for this repo and run the code
+# to install R packages: package_installer.R. Then run the other 
+# R scripts which do the analysis and create the figures. Once 
+# this works on the head node, try on a compute node.
+
+# To run on compute nodes, you first need to install dependencies  
+# on the compute nodes. To do that, Robert has setup a utility "cssh".
+# With this, install R, rstudio, and system dependencies as above but 
+# using the "cssh" tool as described below.
+
+xauth list       # Copy the contents of the last line printed out
+sudo -i          # To get a root bash prompt
+xauth add [...]  # Where [...] is the line copied from xauth list
+cssh nodes       # To get a gui for bash commands to run on all compute 
+                 # nodes and also open an xterm for each compute node.
+                 # Close gui when you are done w/ compute node setup 
+                 # and this will also close the xterm for each node.
+
+# Connect to a compute node as a regular user and then run analysis.
+salloc -n 1 --x11
+
+
