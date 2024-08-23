@@ -1,0 +1,57 @@
+#!/bin/sh
+export OMP_NUM_THREADS=${SLURM_JOB_CPUS_PER_NODE}
+export R_LIBS_USER=${HOME}/R/rocker-rstudio/4.4
+exec /usr/lib/rstudio-server/bin/rsession "\${@}"
+END
+
+chmod +x ${workdir}/rsession.sh
+
+export APPTAINER_BIND="${workdir}/run:/run,${workdir}/tmp:/tmp,${workdir}/database.conf:/etc/rstudio/database.conf,${workdir}/rsession.sh:/etc/rstudio/rsession.sh,${workdir}/var/lib/rstudio-server:/var/lib/rstudio-server"
+
+# Do not suspend idle sessions.
+# Alternative to setting session-timeout-minutes=0 in /etc/rstudio/rsession.conf
+# https://github.com/rstudio/rstudio/blob/v1.4.1106/src/cpp/server/ServerSessionManager.cpp#L126
+export APPTAINERENV_RSTUDIO_SESSION_TIMEOUT=0
+
+export APPTAINERENV_USER=$(id -un)
+export APPTAINERENV_PASSWORD=$(openssl rand -base64 15)
+
+# Pick random port number
+while :
+do
+    PORT=$(shuf -i 50000-60000 -n 1)
+    if netstat -l -t -n | grep -q -v ${PORT}; then
+        break
+    fi
+done
+
+cat 1>&2 <<END
+1. SSH tunnel from your workstation using the following command:
+
+   ssh -p 22 -L ${PORT}:${HOSTNAME}:${PORT} ${APPTAINERENV_USER}@login.hpc.sph.washington.edu
+
+   and point your web browser to http://localhost:${PORT}
+
+2. log in to RStudio Server using the following credentials:
+
+   user: ${APPTAINERENV_USER}
+   password: ${APPTAINERENV_PASSWORD}
+
+When done using RStudio Server, terminate the job by:
+
+1. Exit the RStudio Session ("power" button in the top right corner of the RStudio window)
+2. Issue the following command on the login node:
+
+      scancel -f ${SLURM_JOB_ID}
+END
+
+apptainer exec --cleanenv ${RS_CONTAINER_IMAGE} \
+    /usr/lib/rstudio-server/bin/rserver --www-port ${PORT} \
+            --auth-none=0 \
+            --auth-pam-helper-path=pam-helper \
+            --auth-stay-signed-in-days=30 \
+            --auth-timeout-minutes=0 \
+	    --server-user=${APPTAINERENV_USER} \
+            --rsession-path=/etc/rstudio/rsession.sh
+printf 'rserver exited' 1>&2
+
